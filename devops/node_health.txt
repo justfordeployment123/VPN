@@ -1,0 +1,14 @@
+--- 157.230.93.112 STATUS ---
+interface: wg0
+  public key: L0zI5YMjdtd6E02hBCAQivz0Q+VjdZUE2Hy2bR1/EnM=
+  private key: (hidden)
+  listening port: 51820
+active
+
+--- 167.71.199.96 STATUS ---
+interface: wg0
+  public key: poBJybV3cwBK5ZWeb8Xke2odEoiczw1JGdwmMvZRamk=
+  private key: (hidden)
+  listening port: 51820
+active
+

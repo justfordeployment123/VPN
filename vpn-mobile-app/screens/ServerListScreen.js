@@ -1,23 +1,45 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, FlatList, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { Globe, Search, ChevronRight, Activity } from 'lucide-react-native';
-import { BlurView } from 'expo-blur';
-
-const SERVERS = [
-  { id: '1', name: 'USA - New York', city: 'Low Latency', country: 'US', ping: '24ms', load: 12, tier: 'free' },
-  { id: '2', name: 'UK - London', city: 'Stable', country: 'GB', ping: '65ms', load: 35, tier: 'premium' },
-  { id: '3', name: 'Germany - Frankfurt', city: 'Optimized', country: 'DE', ping: '58ms', load: 42, tier: 'premium' },
-  { id: '4', name: 'Singapore', city: 'Asian Hub', country: 'SG', ping: '120ms', load: 68, tier: 'premium' },
-];
 
 export default function ServerListScreen({ navigation }) {
+  const [servers, setServers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState('');
+
+  useEffect(() => {
+    fetchServers();
+  }, []);
+
+  const fetchServers = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/nodes');
+      const data = await response.json();
+      if (response.ok) {
+        setServers(data);
+      } else {
+        Alert.alert('Error', 'Failed to fetch node registry.');
+      }
+    } catch (error) {
+      console.error(error);
+      // Alert.alert('Network Error', 'Could not reach the Sentinel network.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredServers = servers.filter(s => 
+    s.name.toLowerCase().includes(search.toLowerCase()) || 
+    s.city.toLowerCase().includes(search.toLowerCase())
+  );
+
   const renderItem = ({ item }) => (
     <TouchableOpacity 
       activeOpacity={0.7}
       style={styles.serverCard} 
-      onPress={() => navigation.goBack()}
+      onPress={() => navigation.navigate('Shield', { selectedServer: item })}
     >
       <View style={styles.cardInfo}>
         <View style={styles.iconContainer}>
@@ -25,7 +47,7 @@ export default function ServerListScreen({ navigation }) {
         </View>
         <View style={styles.textContainer}>
           <Text style={styles.serverTitle}>{item.name}</Text>
-          <Text style={styles.serverMeta}>{item.city} • {item.ping}</Text>
+          <Text style={styles.serverMeta}>{item.city} • {item.countryCode}</Text>
         </View>
       </View>
       
@@ -43,7 +65,7 @@ export default function ServerListScreen({ navigation }) {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Global Nodes</Text>
-        <Text style={styles.subtitle}>Select a high-speed server</Text>
+        <Text style={styles.subtitle}>Select a high-speed sentinel</Text>
         
         <View style={styles.searchContainer}>
           <Search size={20} color={theme.colors.onSurfaceVariant} style={styles.searchIcon} />
@@ -51,17 +73,28 @@ export default function ServerListScreen({ navigation }) {
             placeholder="Search locations..."
             placeholderTextColor={theme.colors.onSurfaceVariant}
             style={styles.searchInput}
+            value={search}
+            onChangeText={setSearch}
           />
         </View>
       </View>
 
-      <FlatList
-        data={SERVERS}
-        renderItem={renderItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-        showsVerticalScrollIndicator={false}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
+      ) : (
+        <FlatList
+          data={filteredServers}
+          renderItem={renderItem}
+          keyExtractor={item => item._id}
+          contentContainerStyle={styles.listContent}
+          showsVerticalScrollIndicator={false}
+          ListEmptyComponent={
+            <Text style={{ color: theme.colors.onSurfaceVariant, textAlign: 'center', marginTop: 50 }}>
+              No active nodes found in this sector.
+            </Text>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -1,0 +1,79 @@
+---
+- name: Setup WireGuard on VPN Nodes
+  hosts: vpn_nodes
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install WireGuard and dependencies
+      apt:
+        name:
+          - wireguard
+          - qrencode
+          - ufw
+        state: present
+
+    - name: Enable IPv4 forwarding
+      sysctl:
+        name: net.ipv4.ip_forward
+        value: '1'
+        state: present
+        reload: yes
+
+    - name: Check if WireGuard private key exists
+      stat:
+        path: /etc/wireguard/private.key
+      register: wg_private_key_stat
+
+    - name: Generate WireGuard keys
+      shell: "wg genkey | tee /etc/wireguard/private.key | wg pubkey > /etc/wireguard/public.key"
+      when: not wg_private_key_stat.stat.exists
+
+    - name: Set permissions on private key
+      file:
+        path: /etc/wireguard/private.key
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Read public key
+      command: cat /etc/wireguard/public.key
+      register: wg_public_key
+      changed_when: false
+
+    - name: Configure WireGuard interface (wg0)
+      template:
+        src: wg0.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Setup UFW rules
+      ufw:
+        rule: allow
+        port: "{{ wireguard_port }}"
+        proto: udp
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Enable UFW
+      ufw:
+        state: enabled
+        policy: deny
+
+    - name: Start and enable WireGuard service
+      systemd:
+        name: wg-quick@wg0
+        enabled: yes
+        state: started
+
+    - name: Output Public Key
+      debug:
+        msg: "Server Public Key for {{ inventory_hostname }}: {{ wg_public_key.stdout }}"

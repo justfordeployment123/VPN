@@ -1,20 +1,39 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Dimensions } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, StatusBar, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
-import { Settings, Activity, Globe } from 'lucide-react-native';
+import { Settings, Activity, Globe, Power } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 
 const { width } = Dimensions.get('window');
 
-export default function DashboardScreen({ navigation }) {
-  const isConnected = false;
+export default function DashboardScreen({ navigation, route }) {
+  const [isConnected, setIsConnected] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const selectedServer = route.params?.selectedServer || { 
+    name: 'Auto Selection', 
+    city: 'Optimal Node', 
+    countryCode: 'US' 
+  };
+
+  const handleToggleConnection = async () => {
+    if (isConnected) {
+      setIsConnected(false);
+      return;
+    }
+
+    setConnecting(true);
+    // Simulate WireGuard handshake
+    setTimeout(() => {
+      setConnecting(false);
+      setIsConnected(true);
+    }, 2000);
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StatusBar barStyle="light-content" />
-      
       
       <View style={styles.header}>
         <View style={styles.topBar}>
@@ -39,34 +58,41 @@ export default function DashboardScreen({ navigation }) {
         </View>
       </View>
 
-      
       <View style={styles.main}>
-        <TouchableOpacity activeOpacity={0.8} style={styles.connectOuter}>
+        <TouchableOpacity 
+          activeOpacity={0.8} 
+          style={[styles.connectOuter, isConnected && { shadowColor: theme.colors.tertiary, shadowOpacity: 0.6 }]}
+          onPress={handleToggleConnection}
+          disabled={connecting}
+        >
           <LinearGradient
-            colors={theme.colors.linearGradient}
+            colors={isConnected ? ['#00e3fd', '#002b3d'] : theme.colors.linearGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.pulseContainer}
           >
             <View style={styles.buttonBody}>
-               <Activity size={50} color={theme.colors.background} strokeWidth={2} />
-               <Text style={styles.buttonLabel}>PROTECT</Text>
+               {connecting ? (
+                 <ActivityIndicator size="large" color={theme.colors.background} />
+               ) : (
+                 <Power size={50} color={theme.colors.background} strokeWidth={2} />
+               )}
+               <Text style={styles.buttonLabel}>{isConnected ? 'DISCONNECT' : 'PROTECT'}</Text>
             </View>
           </LinearGradient>
         </TouchableOpacity>
       </View>
 
-      
       <View style={styles.footer}>
-        <BlurView intensity={theme.colors.glassBlur} tint="dark" style={styles.glassPanel}>
+        <BlurView intensity={20} tint="dark" style={styles.glassPanel}>
           <TouchableOpacity 
             style={styles.statItem}
             onPress={() => navigation.navigate('Servers')}
           >
             <Text style={styles.statLabel}>LOCATION</Text>
             <View style={styles.statValueContainer}>
-              <Text style={styles.statValue}>Auto Selection</Text>
-              <Text style={styles.statSubValue}>USA, New York</Text>
+              <Text style={styles.statValue}>{selectedServer.name}</Text>
+              <Text style={styles.statSubValue}>{selectedServer.city}, {selectedServer.countryCode}</Text>
             </View>
           </TouchableOpacity>
           
@@ -76,7 +102,7 @@ export default function DashboardScreen({ navigation }) {
             <Text style={styles.statLabel}>PROTOCOL</Text>
             <View style={styles.statValueContainer}>
               <Text style={styles.statValue}>WireGuard</Text>
-              <Text style={styles.statSubValue}>v4.2.0-STABLE</Text>
+              <Text style={styles.statSubValue}>{isConnected ? 'v4.2.0-STABLE' : 'Standby'}</Text>
             </View>
           </View>
         </BlurView>
@@ -171,7 +197,7 @@ const styles = StyleSheet.create({
   },
   glassPanel: {
     flexDirection: 'row',
-    backgroundColor: theme.colors.surfaceVariant,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
     borderRadius: theme.roundness.lg,
     padding: theme.spacing.lg,
     overflow: 'hidden',

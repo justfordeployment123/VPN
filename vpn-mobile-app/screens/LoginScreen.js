@@ -1,10 +1,48 @@
-import React from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { theme } from '../styles/theme';
 import { ShieldCheck, Mail, Lock } from 'lucide-react-native';
+import * as SecureStore from 'expo-secure-store';
 
 export default function LoginScreen({ navigation }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and security key.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        // Store Token
+        await SecureStore.setItemAsync('userToken', data.token);
+        navigation.navigate('Main');
+      } else {
+        Alert.alert('Login Failed', data.msg || 'Invalid Credentials');
+      }
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Network Error', 'Could not connect to the security layer.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView 
@@ -29,6 +67,9 @@ export default function LoginScreen({ navigation }) {
                 placeholder="ACCESS EMAIL" 
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
               />
             </View>
 
@@ -39,15 +80,22 @@ export default function LoginScreen({ navigation }) {
                 placeholder="SECURITY KEY" 
                 placeholderTextColor={theme.colors.onSurfaceVariant}
                 secureTextEntry
+                value={password}
+                onChangeText={setPassword}
               />
             </View>
 
             <TouchableOpacity 
               activeOpacity={0.8}
-              style={styles.loginButton}
-              onPress={() => navigation.navigate('Main')}
+              style={[styles.loginButton, loading && { opacity: 0.7 }]}
+              onPress={handleLogin}
+              disabled={loading}
             >
-              <Text style={styles.loginButtonText}>ESTABLISH CONNECTION</Text>
+              {loading ? (
+                <ActivityIndicator color={theme.colors.background} />
+              ) : (
+                <Text style={styles.loginButtonText}>ESTABLISH CONNECTION</Text>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity 
