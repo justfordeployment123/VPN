@@ -1,8 +1,8 @@
 const Node = require('../models/Node');
 const WireGuardPeer = require('../models/WireGuardPeer');
-const { Client } = require('ssh2'); // Need to install ssh2
+const { Client } = require('ssh2'); 
 
-// Helper function to run SSH command
+
 const runSshCommand = (node, command) => {
   console.log(`SSH: Connecting to ${node.ipAddress} as root...`);
   return new Promise((resolve, reject) => {
@@ -39,14 +39,14 @@ exports.connectNode = async (req, res) => {
     const node = await Node.findById(nodeId);
     if (!node) return res.status(404).json({ msg: 'Node not found' });
 
-    // 1. Check for existing peer for this user/node
+    
     let peer = await WireGuardPeer.findOne({ userId, nodeId });
     
-    // 2. If no peer, assign new Internal IP
+    
     let internalIp;
     if (!peer) {
       const peerCount = await WireGuardPeer.countDocuments({ nodeId });
-      internalIp = `10.0.0.${peerCount + 2}`; // Start from .2
+      internalIp = `10.0.0.${peerCount + 2}`; 
       
       peer = new WireGuardPeer({
         userId,
@@ -58,8 +58,8 @@ exports.connectNode = async (req, res) => {
       internalIp = peer.internalIp;
     }
 
-    // 3. Register Peer on VPS via SSH
-    // Command: wg set wg0 peer <pubkey> allowed-ips <ip>/32
+    
+    
     const sshCommand = `wg set wg0 peer ${publicKey} allowed-ips ${internalIp}/32`;
     await runSshCommand(node, sshCommand);
 
@@ -82,6 +82,6 @@ exports.connectNode = async (req, res) => {
 };
 
 exports.disconnectNode = async (req, res) => {
-  // Logic to remove peer from wg0
+  
   res.json({ msg: 'Disconnect logic pending' });
 };

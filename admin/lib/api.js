@@ -9,7 +9,7 @@ const api = axios.create({
   },
 });
 
-// Add a request interceptor to attach the admin token
+
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
     const token = localStorage.getItem("adminToken");
@@ -20,7 +20,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Add a response interceptor to handle 401s
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {

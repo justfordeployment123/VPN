@@ -27,8 +27,8 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
-  subscriptionId: String, // Stripe
-  rcUserId: String,      // RevenueCat
+  subscriptionId: String, 
+  rcUserId: String,      
   isVerified: {
     type: Boolean,
     default: false
@@ -36,7 +36,12 @@ const UserSchema = new mongoose.Schema({
   verificationToken: String,
   verificationTokenExpire: Date,
   resetPasswordToken: String,
-  resetPasswordExpire: Date
+  resetPasswordExpire: Date,
+  twoFactorSecret: String,
+  twoFactorEnabled: {
+    type: Boolean,
+    default: false
+  }
 }, { timestamps: true });
 
 UserSchema.pre('save', async function() {

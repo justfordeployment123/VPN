@@ -13,14 +13,14 @@ const seedAdmin = async () => {
     const email = 'admin@gmail.com';
     const password = '12345678';
 
-    // Check if admin already exists
+    
     let user = await User.findOne({ email });
 
     if (user) {
       console.log('Admin user already exists. Updating privileges...');
       user.role = 'admin';
       user.isVerified = true;
-      user.password = password; // Pre-save hook will hash it
+      user.password = password; 
       await user.save();
     } else {
       console.log('Creating new administrative account...');

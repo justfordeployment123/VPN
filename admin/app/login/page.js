@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Mail, Lock, Loader2, Shield } from "lucide-react";
+import { Mail, Lock, Loader2, Shield, ArrowRight } from "lucide-react";
+import Image from "next/image";
 import api from "../../lib/api";
 
 export default function LoginPage() {
@@ -20,56 +21,98 @@ export default function LoginPage() {
     try {
       const res = await api.post("/auth/login", { email, password });
       
+      // Check for MFA requirement
+      if (res.data.mfaRequired) {
+        localStorage.setItem("pendingMfaUserId", res.data.userId);
+        router.push("/login/verify-mfa");
+        return;
+      }
+
       if (res.data.token) {
         localStorage.setItem("adminToken", res.data.token);
         router.push("/");
       } else {
-        setError("Login failed. Access denied.");
+        setError("Secure access denied. Verification failed.");
       }
     } catch (err) {
-      setError(err.response?.data?.msg || "Login failed. Please check your credentials.");
+      setError(err.response?.data?.msg || "Authentication profile match not found.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#EAEFEF] p-4 text-[#25343F]">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-sm border border-[#BFC9D1] overflow-hidden">
-        <div className="p-8">
-          <div className="flex flex-col items-center mb-10">
-            <div className="bg-[#25343F] p-3 rounded-md mb-4">
-              <Shield className="h-8 w-8 text-white" />
+    <div className="flex min-h-screen bg-[#EAEFEF] text-[#25343F]">
+      {/* Left Pane — Visual Branding */}
+      <div className="hidden lg:flex w-1/2 bg-white flex-col items-center justify-center p-12 border-r border-[#BFC9D1]">
+         <div className="max-w-md w-full text-center space-y-6">
+            <div className="inline-flex p-3 rounded-2xl bg-[#25343F] shadow-xl mb-4">
+               <Shield className="h-10 w-10 text-white" />
             </div>
-            <h1 className="text-2xl font-semibold tracking-tight">Admin Dashboard</h1>
-            <p className="text-sm text-slate-500 mt-2">Management Console</p>
+            <h2 className="text-3xl font-bold tracking-tight text-[#25343F]">Administrative Access</h2>
+            <p className="text-slate-500 leading-relaxed">
+              Verify your credentials to manage the secure global VPN infrastructure and oversee network telemetry.
+            </p>
+            <div className="relative h-72 w-full mt-10">
+               <Image 
+                 src="/AUTH_SVGS/Login-pana.svg" 
+                 alt="Login Protocol" 
+                 fill
+                 className="object-contain"
+               />
+            </div>
+         </div>
+      </div>
+
+      {/* Right Pane — Login Form */}
+      <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-8 lg:p-24 bg-[#EAEFEF]">
+        <div className="w-full max-w-sm space-y-8 animate-in fade-in slide-in-from-right-4">
+          <div className="lg:hidden text-center mb-8">
+             <div className="inline-flex p-2 rounded-xl bg-[#25343F] mb-4">
+                <Shield className="h-6 w-6 text-white" />
+             </div>
+             <h1 className="text-xl font-bold">Admin Portal</h1>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">Identity Verification</h1>
+            <p className="text-sm text-slate-500">Please enter your administrative credentials.</p>
+          </div>
+
+          <form onSubmit={handleLogin} className="space-y-5">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Profile Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input 
                   type="email" 
                   required
-                  placeholder="admin@example.com"
-                  className="w-full pl-10 pr-4 py-3 bg-[#EAEFEF]/30 border border-[#BFC9D1] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#FF9B51] transition-all"
+                  placeholder="admin@sentinel.net"
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-[#BFC9D1] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#FF9B51] transition-all shadow-sm"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                 />
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 ml-1">Password</label>
+            <div className="space-y-1.5">
+               <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Access Key</label>
+                  <button 
+                    type="button"
+                    onClick={() => router.push("/forgot-password")}
+                    className="text-[10px] font-bold text-[#FF9B51] hover:underline"
+                  >
+                    Forgot Key?
+                  </button>
+               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <input 
                   type="password" 
                   required
-                  placeholder="Enter password"
-                  className="w-full pl-10 pr-4 py-3 bg-[#EAEFEF]/30 border border-[#BFC9D1] rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-[#FF9B51] transition-all"
+                  placeholder="Profile Password"
+                  className="w-full pl-11 pr-4 py-3 bg-white border border-[#BFC9D1] rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-[#FF9B51] transition-all shadow-sm"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -77,7 +120,7 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div className="bg-rose-50 text-rose-600 text-xs font-medium p-3 rounded-md border border-rose-100">
+              <div className="bg-rose-50 text-rose-600 text-xs font-medium p-3.5 rounded-xl border border-rose-100 animate-in shake duration-300">
                 {error}
               </div>
             )}
@@ -85,14 +128,25 @@ export default function LoginPage() {
             <button 
               type="submit" 
               disabled={loading}
-              className="w-full bg-[#FF9B51] text-white py-3 rounded-md font-bold text-sm hover:bg-[#ff8a35] transition-all shadow-sm flex items-center justify-center space-x-2 disabled:opacity-50"
+              className="w-full bg-[#25343F] text-white py-3.5 rounded-xl font-bold text-sm hover:bg-slate-800 transition-all shadow-lg shadow-blue-900/10 flex items-center justify-center space-x-2 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <span>Login</span>}
+              {loading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <>
+                   <span>Authenticate Access</span>
+                   <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
-        </div>
-        <div className="bg-[#EAEFEF]/30 px-8 py-4 border-t border-[#BFC9D1] text-center">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">VPN MANAGEMENT SYSTEM</span>
+
+          <footer className="pt-8 text-center border-t border-[#BFC9D1]">
+             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-loose">
+               Sentinel Security Framework<br/>
+               <span className="text-[9px] opacity-70 italic shadow-sm bg-white px-2 py-0.5 rounded leading-none">v{process.env.NEXT_PUBLIC_APP_VERSION || '1.2.4'} Stable Deployment</span>
+             </p>
+          </footer>
         </div>
       </div>
     </div>

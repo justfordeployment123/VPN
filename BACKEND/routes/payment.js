@@ -2,12 +2,12 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 
-// RevenueCat Webhook Handler
-// This syncs mobile purchases (App Store/Play Store) to our central DB
+
+
 router.post('/revenuecat-webhook', async (req, res) => {
   const { event } = req.body;
   
-  // Verify Webhook Auth Token (Configured in RevenueCat Dashboard)
+  
   const authHeader = req.headers['authorization'];
   if (authHeader !== `Bearer ${process.env.REVENUECAT_WEBHOOK_TOKEN}`) {
     return res.status(401).json({ msg: 'Unauthorized' });
@@ -32,7 +32,7 @@ router.post('/revenuecat-webhook', async (req, res) => {
       
       case 'EXPIRATION':
       case 'CANCELLATION':
-        // Optional: you might want to wait for actual expiry date to pass
+        
         user.tier = 'free';
         break;
       

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Sidebar from "../components/Sidebar";
+import TopBar from "../components/TopBar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,12 +18,12 @@ const geistMono = Geist_Mono({
 });
 
 export default function RootLayout({ children }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const isLoginPage = pathname === "/login";
 
   useEffect(() => {
-    // Basic protection: if no token and not on login page, redirect
     const token = localStorage.getItem("adminToken");
     if (!token && !isLoginPage) {
       router.push("/login");
@@ -34,11 +35,24 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex h-screen overflow-hidden bg-slate-50 text-slate-900">
-        {!isLoginPage && <Sidebar aria-label="Main Navigation" />}
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
+      <body className="flex h-screen overflow-hidden bg-[#EAEFEF] text-[#25343F]">
+        {!isLoginPage && (
+          <Sidebar 
+            isCollapsed={isCollapsed} 
+            setIsCollapsed={setIsCollapsed} 
+          />
+        )}
+        <div className="flex flex-1 flex-col overflow-hidden">
+          {!isLoginPage && (
+            <TopBar 
+               isCollapsed={isCollapsed} 
+               pathname={pathname}
+            />
+          )}
+          <main className="flex-1 overflow-y-auto overflow-x-hidden">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );

@@ -1,9 +1,16 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
+const speakeasy = require('speakeasy');
+const qrcode = require('qrcode');
 const User = require('../models/User');
 const sendEmail = require('../utils/sendEmail');
 
-// @route   POST api/auth/register
+// Helper for JWT
+const generateToken = (id) => {
+  return jwt.sign({ user: { id } }, process.env.JWT_SECRET, { expiresIn: '7d' });
+};
+
+
 exports.register = async (req, res) => {
   const { email, password } = req.body;
 
@@ -13,9 +20,9 @@ exports.register = async (req, res) => {
       return res.status(400).json({ msg: 'User already exists' });
     }
 
-    // Generate 6-digit verification code
+    
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationTokenExpire = Date.now() + 10 * 60 * 1000; // 10 minutes
+    const verificationTokenExpire = Date.now() + 10 * 60 * 1000; 
 
     user = new User({ 
       email, 
@@ -26,7 +33,7 @@ exports.register = async (req, res) => {
 
     await user.save();
 
-    // Send Verification Email
+    
     try {
       await sendEmail({
         email: user.email,
@@ -49,7 +56,7 @@ exports.register = async (req, res) => {
   }
 };
 
-// @route   POST api/auth/verify
+
 exports.verifyEmail = async (req, res) => {
   const { email, code } = req.body;
 
@@ -86,7 +93,7 @@ exports.verifyEmail = async (req, res) => {
   }
 };
 
-// @route   POST api/auth/login
+
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -105,24 +112,20 @@ exports.login = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid Credentials' });
     }
 
-    const payload = { user: { id: user.id } };
+    // If 2FA is enabled, don't issue token yet
+    if (user.twoFactorEnabled) {
+      return res.json({ mfaRequired: true, userId: user._id });
+    }
 
-    jwt.sign(
-      payload,
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' },
-      (err, token) => {
-        if (err) throw err;
-        res.json({ token });
-      }
-    );
+    const token = generateToken(user.id);
+    res.json({ token });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server error');
   }
 };
 
-// @route   POST api/auth/forgotpassword
+
 exports.forgotPassword = async (req, res) => {
   const { email } = req.body;
 
@@ -132,14 +135,14 @@ exports.forgotPassword = async (req, res) => {
       return res.status(404).json({ msg: 'There is no user with that email' });
     }
 
-    // Generate reset token
+    
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
-    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; // 10 mins
+    user.resetPasswordExpire = Date.now() + 10 * 60 * 1000; 
 
     await user.save();
 
-    // Send email
+    
     const resetUrl = `sentinel://reset-password/${resetToken}`;
     const message = `You are receiving this email because you (or someone else) has requested the reset of a password. Please use this token to reset your password: ${resetToken}`;
 
@@ -164,7 +167,7 @@ exports.forgotPassword = async (req, res) => {
   }
 };
 
-// @route   PUT api/auth/resetpassword/:resettoken
+
 exports.resetPassword = async (req, res) => {
   const resetPasswordToken = crypto.createHash('sha256').update(req.params.resettoken).digest('hex');
 
@@ -178,7 +181,7 @@ exports.resetPassword = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid reset token' });
     }
 
-    // Set new password
+    
     user.password = req.body.password;
     user.resetPasswordToken = undefined;
     user.resetPasswordExpire = undefined;
@@ -187,6 +190,69 @@ exports.resetPassword = async (req, res) => {
     res.status(200).json({ msg: 'Password reset success' });
   } catch (err) {
     console.error(err);
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   POST api/auth/login/2fa
+// @desc    Verify 6-digit TOTP code during login
+exports.login2FA = async (req, res) => {
+  const { userId, code } = req.body;
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ msg: 'User not found' });
+
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: code
+    });
+
+    if (!verified) return res.status(400).json({ msg: 'Invalid 2FA code' });
+
+    const token = generateToken(user.id);
+    res.json({ token });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   POST api/auth/2fa/setup
+// @desc    Generate 2FA secret and QR code (Requires Auth)
+exports.generate2FA = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id);
+    const secret = speakeasy.generateSecret({ name: `Sentinel Admin (${user.email})` });
+    
+    // Store secret temporarily but don't enable yet
+    user.twoFactorSecret = secret.base32;
+    await user.save();
+
+    const qrCodeUrl = await qrcode.toDataURL(secret.otpauth_url);
+    res.json({ qrCodeUrl, secret: secret.base32 });
+  } catch (err) {
+    res.status(500).send('Server error');
+  }
+};
+
+// @route   POST api/auth/2fa/verify
+// @desc    Verify and enable 2FA (Requires Auth)
+exports.verifyAndEnable2FA = async (req, res) => {
+  const { code } = req.body;
+  try {
+    const user = await User.findById(req.user.id);
+    const verified = speakeasy.totp.verify({
+      secret: user.twoFactorSecret,
+      encoding: 'base32',
+      token: code
+    });
+
+    if (!verified) return res.status(400).json({ msg: 'Invalid verification code' });
+
+    user.twoFactorEnabled = true;
+    await user.save();
+    res.json({ msg: '2FA enabled successfully' });
+  } catch (err) {
     res.status(500).send('Server error');
   }
 };

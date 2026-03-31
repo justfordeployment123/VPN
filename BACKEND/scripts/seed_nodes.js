@@ -3,7 +3,7 @@ const dotenv = require('dotenv');
 const Node = require('../models/Node');
 const path = require('path');
 
-// Load .env from the root of the backend folder
+
 dotenv.config({ path: path.join(__dirname, '../.env') });
 
 const nodes = [
@@ -36,10 +36,10 @@ const seedNodes = async () => {
     await mongoose.connect(mongoUri);
     console.log('MongoDB Connected...');
 
-    // Clear existing nodes
+    
     await Node.deleteMany();
 
-    // Insert new nodes
+    
     await Node.insertMany(nodes);
     console.log('Nodes Seeded Successfully!');
     process.exit();

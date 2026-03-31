@@ -5,22 +5,22 @@ require('dotenv').config();
 
 const app = express();
 
-// Connect Database
+
 connectDB();
 
-// Init Middleware
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
 
-// Define Routes
+
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/nodes', require('./routes/node'));
 app.use('/api/vpn', require('./routes/vpn'));
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/payment', require('./routes/payment'));
 
-// Error handling middleware
+
 app.use((err, req, res, next) => {
   console.error('*** STACK TRACE ***');
   console.error(err.stack);

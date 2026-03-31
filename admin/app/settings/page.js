@@ -1,110 +1,267 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { 
   Settings, 
+  Bell, 
   Shield, 
   Database, 
-  Bell, 
-  Key, 
   Save, 
-  Info 
+  Lock,
+  Key,
+  CheckCircle,
+  QrCode,
+  Loader2,
+  AlertCircle
 } from "lucide-react";
+import api from "../../lib/api";
+import Image from "next/image";
 
-export default function AdminSettings() {
+export default function SettingsPage() {
+  const [activeSection, setActiveSection] = useState("general");
+  const [admin, setAdmin] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // 2FA Setup states
+  const [mfaStep, setMfaStep] = useState("initial"); // initial, setup, verify, active
+  const [qrCode, setQrCode] = useState(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaError, setMfaError] = useState("");
+  const [mfaLoading, setMfaLoading] = useState(false);
+
+  useEffect(() => {
+    fetchProfile();
+  }, []);
+
+  const fetchProfile = async () => {
+    try {
+      const res = await api.get("/admin/me");
+      setAdmin(res.data);
+      if (res.data.twoFactorEnabled) {
+         setMfaStep("active");
+      }
+    } catch (err) {
+      console.error("Failed to fetch settings profile", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartMfaSetup = async () => {
+    setMfaLoading(true);
+    setMfaError("");
+    try {
+      const res = await api.post("/auth/2fa/setup");
+      setQrCode(res.data.qrCodeUrl);
+      setMfaStep("setup");
+    } catch (err) {
+      setMfaError("Failed to initialize security protocol.");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
+  const handleVerifyAndEnableMfa = async () => {
+    if (mfaCode.length !== 6) return setMfaError("Code must be 6 digits.");
+    setMfaLoading(true);
+    setMfaError("");
+    try {
+      await api.post("/auth/2fa/verify", { code: mfaCode });
+      setMfaStep("active");
+      fetchProfile();
+    } catch (err) {
+      setMfaError("Verification failed. Please check the code and try again.");
+    } finally {
+      setMfaLoading(false);
+    }
+  };
+
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-8 bg-[#EAEFEF] min-h-full text-[#25343F]">
       <header className="mb-10">
-        <h1 className="text-2xl font-bold text-slate-900">System Configuration</h1>
-        <p className="text-slate-500">Global administrative settings for the Sentinel's Veil VPN infrastructure.</p>
+        <h1 className="text-2xl font-bold tracking-tight">System Settings</h1>
+        <p className="text-slate-500 mt-1">Configure global network parameters and administrative access.</p>
       </header>
 
-      <div className="space-y-8">
-        {/* Security Section */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center">
-            <Shield className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-lg font-bold text-slate-900">Security & Authentication</h2>
-          </div>
-          <div className="p-6 space-y-6">
-             <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Two-Factor Authentication (Admin)</p>
-                  <p className="text-xs text-slate-500">Requirement for all administrative access attempts.</p>
-                </div>
-                <div className="h-6 w-11 rounded-full bg-slate-200 p-1 flex justify-start cursor-pointer">
-                   <div className="h-4 w-4 rounded-full bg-white shadow-sm"></div>
-                </div>
-             </div>
-             <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Session Timeout</p>
-                  <p className="text-xs text-slate-500">Automatically logout inactive administrators after 30 minutes.</p>
-                </div>
-                <select className="text-xs border border-slate-200 rounded px-2 py-1 bg-slate-50">
-                   <option>30 Minutes</option>
-                   <option>1 Hour</option>
-                   <option>Always On</option>
-                </select>
-             </div>
-          </div>
-        </section>
+      <div className="flex flex-col lg:flex-row gap-8">
+        {/* Navigation Sidebar */}
+        <aside className="w-full lg:w-64 shrink-0">
+          <nav className="flex flex-col space-y-1">
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                onClick={() => setActiveSection(section.id)}
+                className={`flex items-center px-4 py-3 text-sm font-bold rounded-lg transition-all ${
+                  activeSection === section.id
+                    ? "bg-[#25343F] text-white shadow-md"
+                    : "text-slate-500 hover:bg-white hover:text-[#25343F]"
+                }`}
+              >
+                <section.icon size={18} className="mr-3 shrink-0" />
+                {section.name}
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        {/* Network Infrastructure Section */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center">
-            <Database className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-lg font-bold text-slate-900">Infrastructure Scalability</h2>
-          </div>
-          <div className="p-6 space-y-6">
-             <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Auto-Scaling Trigger</p>
-                  <p className="text-xs text-slate-500">Notify admin when global network load exceeds threshold.</p>
-                </div>
-                <div className="flex items-center text-sm text-slate-900 font-bold">
-                   <input type="number" defaultValue={85} className="w-12 text-center border-b border-slate-300 focus:border-indigo-600 outline-none" />
-                   <span className="ml-1">%</span>
-                </div>
-             </div>
-             <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Default WireGuard Port</p>
-                  <p className="text-xs text-slate-500">Standard port used for new VPN node enrollment.</p>
-                </div>
-                <p className="text-sm font-mono text-slate-600">51820</p>
-             </div>
-          </div>
-        </section>
+        {/* Content Area */}
+        <div className="flex-1 max-w-4xl">
+          <div className="bg-white rounded-2xl border border-[#BFC9D1] shadow-sm overflow-hidden flex flex-col min-h-[500px]">
+            <div className="flex-1">
+               {activeSection === "general" && (
+                 <div className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4">
+                   <div>
+                     <h3 className="text-lg font-bold mb-4">Core Fleet Parameters</h3>
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">System Environment</label>
+                          <select className="w-full px-4 py-3 bg-[#EAEFEF]/30 border border-[#BFC9D1] rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#FF9B51]">
+                             <option>Production (Stable)</option>
+                             <option>Staging</option>
+                             <option>Development</option>
+                          </select>
+                       </div>
+                       <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Default Node Protocol</label>
+                          <select className="w-full px-4 py-3 bg-[#EAEFEF]/30 border border-[#BFC9D1] rounded-xl text-sm outline-none focus:ring-1 focus:ring-[#FF9B51]">
+                             <option>WireGuard (Recommended)</option>
+                             <option>OpenVPN</option>
+                             <option>IKEv2</option>
+                          </select>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               )}
 
-        {/* Global Webhooks */}
-        <section className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-slate-100 flex items-center">
-            <Key className="h-5 w-5 text-indigo-600 mr-3" />
-            <h2 className="text-lg font-bold text-slate-900">Global Integrations</h2>
-          </div>
-          <div className="p-6 space-y-4">
-             <div>
-               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">RevenueCat Webhook Secret</label>
-               <input type="password" value="••••••••••••••••••••••••••••••" readOnly className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 text-sm font-mono text-slate-600" />
-             </div>
-          </div>
-        </section>
+               {activeSection === "security" && (
+                 <div className="p-8 space-y-8 animate-in fade-in slide-in-from-right-4">
+                    <h3 className="text-lg font-bold mb-2">Administrative Authentication</h3>
+                    <p className="text-xs text-slate-500 mb-6 italic leading-relaxed">
+                       Manage account access layers and security requirements for the administrative portal.
+                    </p>
+                    
+                    <div className="space-y-6">
+                       <div className="group space-y-3">
+                          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Identity MFA Layer</label>
+                          <div className="bg-[#EAEFEF]/20 border border-[#BFC9D1] rounded-2xl p-8">
+                             {mfaStep === "active" ? (
+                               <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                     <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 mr-4 border border-emerald-100">
+                                        <Shield size={24} />
+                                     </div>
+                                     <div>
+                                        <p className="text-sm font-bold text-[#25343F]">Two-Factor Authentication Active</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">Your identity is protected with encrypted TOTP layers.</p>
+                                     </div>
+                                  </div>
+                                  <button className="text-[10px] font-bold text-slate-400 hover:text-rose-600 uppercase tracking-widest transition-colors">
+                                     Deactivate MFA
+                                  </button>
+                               </div>
+                             ) : mfaStep === "setup" ? (
+                               <div className="space-y-8 animate-in zoom-in-95 duration-200">
+                                  <div className="flex flex-col md:flex-row gap-8 items-center">
+                                     <div className="bg-white p-4 rounded-2xl border-2 border-[#EAEFEF] shadow-inner shrink-0">
+                                        {qrCode && <Image src={qrCode} alt="Security Setup QR" width={180} height={180} />}
+                                     </div>
+                                     <div className="space-y-4">
+                                        <h4 className="font-bold text-[#25343F]">Establish Security Link</h4>
+                                        <p className="text-xs text-slate-500 leading-relaxed">
+                                           1. Scan this identifier with Google Authenticator or Authy.<br/>
+                                           2. Provision the new administrative account profile.<br/>
+                                           3. Provide the generated 6-digit verification key below.
+                                        </p>
+                                        <div className="space-y-3 pt-2">
+                                           <div className="relative max-w-[200px]">
+                                              <QrCode className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-300" />
+                                              <input 
+                                                type="text" 
+                                                maxLength={6}
+                                                placeholder="Code"
+                                                className="w-full pl-10 pr-4 py-2 border border-[#BFC9D1] rounded-lg text-sm bg-white focus:outline-none focus:ring-1 focus:ring-[#FF9B51]"
+                                                value={mfaCode}
+                                                onChange={(e) => setMfaCode(e.target.value)}
+                                              />
+                                           </div>
+                                           {mfaError && <p className="text-[10px] font-bold text-rose-500">{mfaError}</p>}
+                                           <div className="flex space-x-3">
+                                              <button 
+                                                onClick={handleVerifyAndEnableMfa}
+                                                disabled={mfaLoading || mfaCode.length !== 6}
+                                                className="px-4 py-2 bg-[#25343F] text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-all disabled:opacity-50"
+                                              >
+                                                {mfaLoading ? <Loader2 size={14} className="animate-spin" /> : "Verify & Enable"}
+                                              </button>
+                                              <button onClick={() => setMfaStep("initial")} className="px-4 py-2 text-slate-400 hover:text-[#25343F] text-xs font-bold transition-all">
+                                                Cancel
+                                              </button>
+                                           </div>
+                                        </div>
+                                     </div>
+                                  </div>
+                               </div>
+                             ) : (
+                               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                                  <div className="flex items-center">
+                                     <div className="p-3 bg-slate-100 rounded-xl text-slate-400 mr-4">
+                                        <Lock size={24} />
+                                     </div>
+                                     <div>
+                                        <p className="text-sm font-bold text-[#25343F]">Standard Access Only</p>
+                                        <p className="text-xs text-slate-400 mt-0.5">Elevate security by requiring a secondary verification key.</p>
+                                     </div>
+                                  </div>
+                                  <button 
+                                    onClick={handleStartMfaSetup}
+                                    disabled={mfaLoading}
+                                    className="flex items-center px-5 py-2.5 bg-[#FF9B51] text-white rounded-xl text-xs font-bold hover:bg-[#ff8a35] transition-all shadow-md shadow-orange-500/10"
+                                  >
+                                    {mfaLoading ? <Loader2 size={14} className="animate-spin mr-2" /> : <Key size={14} className="mr-2" />}
+                                    Activate Multi-Factor (MFA)
+                                  </button>
+                               </div>
+                             )}
+                          </div>
+                       </div>
 
-        <div className="flex items-center justify-end space-x-4 pt-4 border-t border-slate-200">
-           <button className="text-sm font-semibold text-slate-500 hover:text-slate-700">Restore Defaults</button>
-           <button className="inline-flex items-center rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white hover:bg-indigo-700 transition-colors shadow-md">
-              <Save className="h-4 w-4 mr-2" />
-              Commit Changes
-           </button>
-        </div>
+                       <div className="pt-6 border-t border-[#EAEFEF]">
+                          <h4 className="text-sm font-bold mb-4 opacity-50 uppercase tracking-widest">Global Policies</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <div className="p-4 border border-[#BFC9D1] rounded-2xl flex items-center justify-between">
+                                <div className="flex items-center">
+                                   <AlertCircle size={16} className="text-amber-500 mr-3" />
+                                   <span className="text-xs font-bold">Enforce Admin MFA</span>
+                                </div>
+                                <div className="h-5 w-9 bg-[#25343F] rounded-full relative p-1 cursor-pointer">
+                                   <div className="h-3 w-3 bg-white rounded-full translate-x-4"></div>
+                                </div>
+                             </div>
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+               )}
+            </div>
 
-        <div className="bg-indigo-50 border-l-4 border-indigo-600 p-4 rounded-r-lg flex items-start">
-           <Info className="h-5 w-5 text-indigo-600 mr-3 mt-0.5 flex-shrink-0" />
-           <p className="text-xs text-indigo-700 leading-relaxed font-medium">
-             Changes made here affect the entire Sentinel network infrastructure and global client synchronization. Please exercise caution when modifying security and network protocols.
-           </p>
+            {/* Global Actions Footer */}
+            <div className="bg-[#EAEFEF]/30 px-8 py-4 border-t border-[#BFC9D1] flex justify-end items-center">
+               <button className="flex items-center px-8 py-3 bg-[#25343F] text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-800 transition-all shadow-lg shadow-blue-900/10">
+                  <Save size={14} className="mr-2" />
+                  Save Changes
+               </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+const sections = [
+  { id: "general", name: "System Configuration", icon: Settings },
+  { id: "notifications", name: "Alert Management", icon: Bell },
+  { id: "security", name: "Access & Security", icon: Shield },
+  { id: "api", name: "API & Data", icon: Database },
+];
