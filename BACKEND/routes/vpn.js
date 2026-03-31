@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { connectNode, disconnectNode } = require('../controllers/vpnController');
-const auth = require('../middlewares/authMiddleware');
+const { auth } = require('../middlewares/authMiddleware');
 
 // @route   POST api/vpn/connect
 // @desc    Register a peer on a VPN node and get config

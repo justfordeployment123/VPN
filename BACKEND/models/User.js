@@ -13,6 +13,11 @@ const UserSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  role: {
+    type: String,
+    enum: ['user', 'admin'],
+    default: 'user'
+  },
   tier: {
     type: String,
     enum: ['free', 'premium'],
@@ -22,6 +27,8 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: null
   },
+  subscriptionId: String, // Stripe
+  rcUserId: String,      // RevenueCat
   isVerified: {
     type: Boolean,
     default: false

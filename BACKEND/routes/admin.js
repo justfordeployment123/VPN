@@ -1,0 +1,80 @@
+const express = require('express');
+const router = express.Router();
+const { auth, admin } = require('../middlewares/authMiddleware');
+const User = require('../models/User');
+const Node = require('../models/Node');
+
+// @route   GET api/admin/stats
+// @desc    Get dashboard metrics
+// @access  Admin
+router.get('/stats', [auth, admin], async (req, res) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const premiumUsers = await User.countDocuments({ tier: 'premium' });
+    const activeNodes = await Node.countDocuments({ isActive: true });
+    
+    res.json({
+      totalUsers,
+      premiumUsers,
+      activeNodes,
+      systemStatus: 'Online'
+    });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error fetching metrics' });
+  }
+});
+
+// @route   GET api/admin/users
+// @desc    Get all users (paginated)
+// @access  Admin
+router.get('/users', [auth, admin], async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 20;
+    const skip = (page - 1) * limit;
+
+    const users = await User.find()
+      .select('-password')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await User.countDocuments();
+
+    res.json({
+      users,
+      page,
+      pages: Math.ceil(total / limit),
+      total
+    });
+  } catch (err) {
+    res.status(500).json({ msg: 'Server error fetching users' });
+  }
+});
+
+// @route   POST api/admin/nodes
+// @desc    Create a new VPN node
+// @access  Admin
+router.post('/nodes', [auth, admin], async (req, res) => {
+  try {
+    const newNode = new Node(req.body);
+    await newNode.save();
+    res.json(newNode);
+  } catch (err) {
+    res.status(500).json({ msg: 'Error creating node' });
+  }
+});
+
+// @route   PUT api/admin/nodes/:id
+// @desc    Update node settings
+// @access  Admin
+router.put('/nodes/:id', [auth, admin], async (req, res) => {
+  try {
+    const node = await Node.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(node);
+  } catch (err) {
+    res.status(500).json({ msg: 'Error updating node' });
+  }
+});
+
+module.exports = router;

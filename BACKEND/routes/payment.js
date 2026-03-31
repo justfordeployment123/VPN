@@ -1,0 +1,52 @@
+const express = require('express');
+const router = express.Router();
+const User = require('../models/User');
+
+// RevenueCat Webhook Handler
+// This syncs mobile purchases (App Store/Play Store) to our central DB
+router.post('/revenuecat-webhook', async (req, res) => {
+  const { event } = req.body;
+  
+  // Verify Webhook Auth Token (Configured in RevenueCat Dashboard)
+  const authHeader = req.headers['authorization'];
+  if (authHeader !== `Bearer ${process.env.REVENUECAT_WEBHOOK_TOKEN}`) {
+    return res.status(401).json({ msg: 'Unauthorized' });
+  }
+
+  try {
+    const { app_user_id, type, expiration_at_ms } = event;
+    const user = await User.findById(app_user_id);
+
+    if (!user) {
+      console.error(`User not found for RevenueCat ID: ${app_user_id}`);
+      return res.status(404).end();
+    }
+
+    switch (type) {
+      case 'INITIAL_PURCHASE':
+      case 'RENEWAL':
+        user.tier = 'premium';
+        user.expiryDate = new Date(expiration_at_ms);
+        user.rcUserId = app_user_id;
+        break;
+      
+      case 'EXPIRATION':
+      case 'CANCELLATION':
+        // Optional: you might want to wait for actual expiry date to pass
+        user.tier = 'free';
+        break;
+      
+      default:
+        console.log(`Unhandled RevenueCat event: ${type}`);
+    }
+
+    await user.save();
+    res.status(200).json({ received: true });
+
+  } catch (err) {
+    console.error('RevenueCat Webhook Error:', err);
+    res.status(500).json({ msg: 'Internal server error' });
+  }
+});
+
+module.exports = router;
